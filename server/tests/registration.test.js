@@ -2,8 +2,12 @@ const request = require('supertest');
 const app = require('../index');
 const db = require('../db/database');
 const config = require('../config');
+const seed = require('../db/seed');
 
 describe('Public Registration API (POST /api/auth/register)', () => {
+  beforeEach(async () => {
+    await seed();
+  });
 
   const validRegistration = {
     name: 'New Registered User',

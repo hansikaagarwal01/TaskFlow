@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 const prisma = require('../lib/prisma');
 
@@ -17,9 +17,10 @@ const defaultData = {
 };
 
 let isPrismaConnected = false;
+let prismaConnectPromise = null;
 
 if (prisma && typeof prisma.$connect === 'function') {
-  prisma.$connect().then(() => {
+  prismaConnectPromise = prisma.$connect().then(() => {
     isPrismaConnected = true;
     console.log('PostgreSQL connected via Prisma ORM!');
   }).catch(() => {
@@ -195,6 +196,164 @@ class PrismaIntegratedDatabase {
     this.save();
   }
 
+  async ensurePrismaConnected() {
+    if (prismaConnectPromise) {
+      await prismaConnectPromise;
+    }
+    return isPrismaConnected;
+  }
+
+  isPrismaAvailable() {
+    return isPrismaConnected;
+  }
+
+  async cleanAndSeedPrisma(seedData) {
+    if (!isPrismaConnected || !prisma) return;
+    try {
+      // 1. Delete existing records in reverse foreign key dependency order
+      await prisma.notification.deleteMany();
+      await prisma.activityLog.deleteMany();
+      await prisma.session.deleteMany();
+      await prisma.task.deleteMany();
+      await prisma.invitation.deleteMany();
+      await prisma.workspaceMember.deleteMany();
+      await prisma.user.updateMany({ data: { teamId: null } });
+      await prisma.team.updateMany({ data: { leaderId: null } });
+      await prisma.team.deleteMany();
+      await prisma.user.deleteMany();
+      await prisma.company.deleteMany();
+
+      // 2. Insert Companies
+      for (const c of (seedData.companies || [])) {
+        await prisma.company.create({
+          data: {
+            id: c.id,
+            name: c.name,
+            slug: c.slug,
+            createdAt: c.createdAt ? new Date(c.createdAt) : new Date(),
+            updatedAt: c.updatedAt ? new Date(c.updatedAt) : new Date()
+          }
+        });
+      }
+
+      // 3. Insert Users (teamId set to null initially)
+      for (const u of (seedData.users || [])) {
+        await prisma.user.create({
+          data: {
+            id: u.id,
+            email: u.email.toLowerCase(),
+            name: u.name,
+            passwordHash: u.passwordHash,
+            role: u.role,
+            teamId: null,
+            activeCompanyId: u.activeCompanyId || null,
+            title: u.title || null,
+            avatar: u.avatar || null,
+            createdAt: u.createdAt ? new Date(u.createdAt) : new Date(),
+            updatedAt: u.updatedAt ? new Date(u.updatedAt) : new Date()
+          }
+        });
+      }
+
+      // 4. Insert Teams (leaderId references existing User)
+      for (const t of (seedData.teams || [])) {
+        await prisma.team.create({
+          data: {
+            id: t.id,
+            companyId: t.companyId,
+            name: t.name,
+            description: t.description || null,
+            leaderId: t.leaderId || null,
+            createdAt: t.createdAt ? new Date(t.createdAt) : new Date(),
+            updatedAt: t.updatedAt ? new Date(t.updatedAt) : new Date()
+          }
+        });
+      }
+
+      // 5. Update Users with teamId
+      for (const u of (seedData.users || [])) {
+        if (u.teamId) {
+          await prisma.user.update({
+            where: { id: u.id },
+            data: { teamId: u.teamId }
+          });
+        }
+      }
+
+      // 6. Insert Workspace Members (references User and Company)
+      for (const m of (seedData.workspaceMembers || [])) {
+        await prisma.workspaceMember.create({
+          data: {
+            id: m.id,
+            userId: m.userId,
+            companyId: m.companyId,
+            role: m.role || 'EMPLOYEE',
+            joinedAt: m.joinedAt ? new Date(m.joinedAt) : new Date(),
+            createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
+            updatedAt: m.updatedAt ? new Date(m.updatedAt) : new Date()
+          }
+        });
+      }
+
+      // 7. Insert Tasks (references Company, Assignee, Creator, Team)
+      for (const t of (seedData.tasks || [])) {
+        await prisma.task.create({
+          data: {
+            id: t.id,
+            companyId: t.companyId,
+            title: t.title,
+            description: t.description || null,
+            priority: t.priority || 'MEDIUM',
+            status: t.status || 'PENDING',
+            approvalStatus: t.approvalStatus || 'NOT_REQUIRED',
+            assignedTo: t.assignedTo,
+            teamId: t.teamId,
+            createdBy: t.createdBy,
+            dueDate: t.dueDate,
+            rejectionReason: t.rejectionReason || null,
+            createdAt: t.createdAt ? new Date(t.createdAt) : new Date(),
+            updatedAt: t.updatedAt ? new Date(t.updatedAt) : new Date()
+          }
+        });
+      }
+
+      // 8. Insert Activity Logs (references Company, User, Task)
+      for (const a of (seedData.activityLogs || [])) {
+        await prisma.activityLog.create({
+          data: {
+            id: a.id,
+            companyId: a.companyId || null,
+            taskId: a.taskId || null,
+            userId: a.userId,
+            action: a.action,
+            details: a.details || null,
+            timestamp: a.timestamp ? new Date(a.timestamp) : new Date(),
+            createdAt: a.createdAt ? new Date(a.createdAt) : new Date(),
+            updatedAt: a.updatedAt ? new Date(a.updatedAt) : new Date()
+          }
+        });
+      }
+
+      // 9. Insert Notifications (references Company, User, Task)
+      for (const n of (seedData.notifications || [])) {
+        await prisma.notification.create({
+          data: {
+            id: n.id,
+            companyId: n.companyId || null,
+            userId: n.userId,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            taskId: n.taskId || null,
+            isRead: n.isRead || false,
+            createdAt: n.createdAt ? new Date(n.createdAt) : new Date(),
+            updatedAt: n.updatedAt ? new Date(n.updatedAt) : new Date()
+          }
+        });
+      }
+    } catch (err) {}
+  }
+
   async syncInsertToPrisma(collection, item) {
     if (!isPrismaConnected) return;
     try {
@@ -262,6 +421,8 @@ class PrismaIntegratedDatabase {
         await prisma.session.delete({ where: { id } });
       } else if (collection === 'notifications') {
         await prisma.notification.delete({ where: { id } });
+      } else if (collection === 'activityLogs') {
+        await prisma.activityLog.delete({ where: { id } });
       }
     } catch (err) {}
   }

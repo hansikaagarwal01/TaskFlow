@@ -1,4 +1,4 @@
-﻿const { hashPassword } = require('../utils/password');
+const { hashPassword } = require('../utils/password');
 const db = require('./database');
 
 function addDays(days) {
@@ -375,6 +375,23 @@ async function seed() {
     notifications,
     sessions: []
   });
+
+  if (typeof db.ensurePrismaConnected === 'function') {
+    const isConnected = await db.ensurePrismaConnected();
+    if (isConnected && typeof db.cleanAndSeedPrisma === 'function') {
+      await db.cleanAndSeedPrisma({
+        companies,
+        workspaceMembers,
+        invitations: [],
+        users,
+        teams,
+        tasks,
+        activityLogs,
+        notifications,
+        sessions: []
+      });
+    }
+  }
 
   console.log('✅ TaskFlow database successfully seeded (Multi-Company SaaS)!');
   console.log('Companies created:', companies.length);

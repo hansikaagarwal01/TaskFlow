@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const config = require('../config');
 const db = require('../db/database');
@@ -53,53 +53,35 @@ router.post('/register', validateRequest(registerSchema), async (req, res) => {
 
   let initialRole = 'EMPLOYEE';
   let activeCompanyId = null;
+  let companyToCreate = null;
 
   if (companyName && companyName.trim()) {
     // Option A: Create new Company & become MANAGER
     const companyId = `comp-${uuidv4().slice(0, 8)}`;
     const slug = companyName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `company-${uuidv4().slice(0, 4)}`;
 
-    db.insert('companies', {
+    companyToCreate = {
       id: companyId,
       name: companyName.trim(),
       slug,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    });
+    };
 
     initialRole = 'MANAGER';
     activeCompanyId = companyId;
-
-    db.insert('workspaceMembers', {
-      id: `wm-${newUserId}-${companyId}`,
-      userId: newUserId,
-      companyId,
-      role: 'MANAGER',
-      joinedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
   } else if (invitation) {
     // Option B: Join Workspace via Invitation Token
     initialRole = invitation.role;
     activeCompanyId = invitation.companyId;
-
-    db.insert('workspaceMembers', {
-      id: `wm-${newUserId}-${invitation.companyId}`,
-      userId: newUserId,
-      companyId: invitation.companyId,
-      role: invitation.role,
-      joinedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
-
-    // Mark invitation as used
-    db.update('invitations', invitation.id, {
-      usedAt: new Date().toISOString()
-    });
   }
 
+  // 1. Create company first (no foreign key dependencies)
+  if (companyToCreate) {
+    db.insert('companies', companyToCreate);
+  }
+
+  // 2. Create user second (required before WorkspaceMember and Session FKs)
   const newUser = {
     id: newUserId,
     email: normalizedEmail,
@@ -115,6 +97,25 @@ router.post('/register', validateRequest(registerSchema), async (req, res) => {
   };
 
   db.insert('users', newUser);
+
+  // 3. Create workspace membership third (references Company and User)
+  if (activeCompanyId) {
+    db.insert('workspaceMembers', {
+      id: `wm-${newUserId}-${activeCompanyId}`,
+      userId: newUserId,
+      companyId: activeCompanyId,
+      role: initialRole,
+      joinedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    if (invitation) {
+      db.update('invitations', invitation.id, {
+        usedAt: new Date().toISOString()
+      });
+    }
+  }
 
   // Create session & tokens for immediate login
   const accessToken = generateAccessToken(newUser);

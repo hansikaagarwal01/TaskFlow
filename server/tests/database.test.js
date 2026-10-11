@@ -78,6 +78,7 @@ describe('TaskFlow Database & Prisma Migration Suite (Phase 3)', () => {
 
       const newTask = db.insert('tasks', {
         id: 'task-db-test-1',
+        companyId: 'comp-acme',
         title: 'Database Atomicity Test Task',
         priority: 'HIGH',
         status: 'PENDING',
@@ -93,6 +94,7 @@ describe('TaskFlow Database & Prisma Migration Suite (Phase 3)', () => {
 
       db.insert('activityLogs', {
         id: 'act-db-test-1',
+        companyId: 'comp-acme',
         taskId: newTask.id,
         userId: 'u-mgr-1',
         action: 'TASK_CREATED',
