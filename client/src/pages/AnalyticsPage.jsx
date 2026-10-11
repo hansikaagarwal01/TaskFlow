@@ -18,19 +18,24 @@ import { BarChart3 } from 'lucide-react';
 export const AnalyticsPage = () => {
   const { user } = useAuth();
   const [overview, setOverview] = useState(null);
-  const [aiInsights, setAiInsights] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [overviewData, aiData] = await Promise.all([
+      const [overviewData, usersData, tasksData] = await Promise.all([
         api.get('/analytics/overview'),
-        api.get('/ai/insights')
+        api.get('/users'),
+        api.get('/tasks')
       ]);
 
+      const taskList = Array.isArray(tasksData) ? tasksData : (tasksData?.tasks || []);
+      const userList = Array.isArray(usersData) ? usersData : [];
       setOverview(overviewData);
-      setAiInsights(aiData);
+      setUsers(userList);
+      setTasks(taskList);
     } catch (err) {
       console.error('Failed to load analytics:', err);
     } finally {
@@ -42,12 +47,11 @@ export const AnalyticsPage = () => {
     loadData();
   }, [user]);
 
-  if (loading || !overview || !aiInsights) {
-    return <div className="p-12 text-center text-xs text-[#6B5B52]">Computing workload analytics...</div>;
+  if (loading || !overview) {
+    return <div className="p-12 text-center text-xs text-[#6B5B52]">Loading analytics...</div>;
   }
 
   const { metrics, priorityBreakdown, teamPerformance } = overview;
-  const { employeeWorkload } = aiInsights;
 
   // Chart Data with Burgundy, Taupe & Cream Palette
   const priorityChartData = [
@@ -56,11 +60,16 @@ export const AnalyticsPage = () => {
     { name: 'Low Priority', value: priorityBreakdown.LOW, color: '#561C24' }
   ];
 
-  const workloadChartData = employeeWorkload.map(w => ({
-    name: w.userName,
-    activeTasks: w.activeTasksCount,
-    completed: w.completedTasksCount
-  }));
+  const workloadChartData = users
+    .filter(u => u.role === 'EMPLOYEE' || u.role === 'LEADER')
+    .map(u => {
+      const userTasks = tasks.filter(t => t.assignedTo === u.id);
+      return {
+        name: u.name,
+        activeTasks: userTasks.filter(t => t.status !== 'COMPLETED').length,
+        completed: userTasks.filter(t => t.status === 'COMPLETED').length
+      };
+    });
 
   return (
     <div className="page-container space-y-6">

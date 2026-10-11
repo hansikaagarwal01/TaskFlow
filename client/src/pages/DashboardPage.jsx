@@ -9,7 +9,6 @@ import {
   AlertTriangle, 
   TrendingUp, 
   ArrowUpRight,
-  Sparkles,
   Activity,
   User,
   RotateCcw,
@@ -35,28 +34,24 @@ export const DashboardPage = ({ onNavigateTab, onSelectTask, onOpenRejectModal, 
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [activeTasks, setActiveTasks] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
-  const [aiInsights, setAiInsights] = useState(null);
   const [teamPerformance, setTeamPerformance] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [rebalancing, setRebalancing] = useState(false);
-
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [analyticsData, tasksData, approvalsData, activityData, aiData] = await Promise.all([
+      const [analyticsData, tasksData, approvalsData, activityData] = await Promise.all([
         api.get('/analytics/overview'),
         api.get('/tasks'),
         (user?.role === 'MANAGER' || user?.role === 'LEADER') ? api.get('/approvals') : Promise.resolve([]),
-        api.get('/activity'),
-        api.get('/ai/insights')
+        api.get('/activity')
       ]);
 
+      const taskList = Array.isArray(tasksData) ? tasksData : (tasksData?.tasks || []);
       setMetrics(analyticsData.metrics);
       setTeamPerformance(analyticsData.teamPerformance || []);
-      setActiveTasks(tasksData.filter(t => t.status !== 'COMPLETED').slice(0, 4));
+      setActiveTasks(taskList.filter(t => t.status !== 'COMPLETED').slice(0, 4));
       setPendingApprovals(approvalsData);
       setRecentActivity(activityData.slice(0, 5));
-      setAiInsights(aiData);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {
@@ -85,23 +80,6 @@ export const DashboardPage = ({ onNavigateTab, onSelectTask, onOpenRejectModal, 
       console.error('Status update failed:', err);
     }
   };
-
-  const handleApplyRebalance = async (rec) => {
-    if (!rec?.taskId || !rec?.suggestedUser) return;
-    setRebalancing(true);
-    try {
-      await api.post('/ai/rebalance', {
-        taskId: rec.taskId,
-        newAssigneeId: rec.suggestedUser
-      });
-      loadDashboardData();
-    } catch (err) {
-      console.error('Rebalance error:', err);
-    } finally {
-      setRebalancing(false);
-    }
-  };
-
   if (loading || !metrics) {
     return (
       <div className="page-container py-20 text-center text-xs text-[#6B5B52]">
@@ -367,10 +345,10 @@ export const DashboardPage = ({ onNavigateTab, onSelectTask, onOpenRejectModal, 
         )}
       </div>
 
-      {/* 4. Bottom Row: Team Collaboration / Recent Activity, Project Completion Chart, and Dark Burgundy Workload Insight Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Team Collaboration / Recent Activity (Col Span 4) */}
-        <div className="lg:col-span-4 card-beige p-6 space-y-4 rounded-2xl flex flex-col justify-between">
+      {/* 4. Bottom Row: Team Collaboration / Recent Activity and Project Completion Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Team Collaboration / Recent Activity */}
+        <div className="card-beige p-6 space-y-4 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2 border-b border-[#F0E6D8]">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-[#561C24]" />
@@ -399,8 +377,8 @@ export const DashboardPage = ({ onNavigateTab, onSelectTask, onOpenRejectModal, 
           </div>
         </div>
 
-        {/* Project / Department Completion Chart (Col Span 4) */}
-        <div className="lg:col-span-4 card-beige p-6 space-y-4 rounded-2xl flex flex-col justify-between">
+        {/* Project / Department Completion Chart */}
+        <div className="card-beige p-6 space-y-4 rounded-2xl flex flex-col justify-between">
           <div>
             <h3 className="font-serif text-base font-bold text-[#2C1819]">Department Completion Ratio</h3>
             <p className="text-xs text-[#6B5B52]">Distribution of completed work per team</p>
@@ -430,59 +408,6 @@ export const DashboardPage = ({ onNavigateTab, onSelectTask, onOpenRejectModal, 
           <div className="pt-2 border-t border-[#F0E6D8] flex items-center justify-around text-xs">
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#561C24]"></span> Completed Tasks</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#C7B7A3]"></span> Active Workload</span>
-          </div>
-        </div>
-
-        {/* Dark Burgundy Workload Insight Panel (Col Span 4) */}
-        <div className="lg:col-span-4 card-burgundy-primary p-6 space-y-4 rounded-2xl flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-white/20">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4.5 h-4.5 text-[#E8D8C4]" />
-                <h3 className="font-serif text-base font-bold text-white">AI Workload Insight</h3>
-              </div>
-              <span className="px-2 py-0.5 rounded-md bg-white/20 text-xs font-mono font-bold text-white">
-                Score: {aiInsights?.executiveSummary?.healthScore || 92}/100
-              </span>
-            </div>
-
-            <div className="space-y-3 mt-3">
-              <p className="text-xs text-[#FAF6F0]/90 leading-relaxed">
-                {aiInsights?.executiveSummary?.executiveHeadline || 'Capacity optimization algorithm active. Risk parameters within expected limits.'}
-              </p>
-
-              {aiInsights?.recommendations?.length > 0 ? (
-                <div className="p-3 rounded-xl bg-white/10 border border-white/20 text-xs space-y-2">
-                  <div className="flex items-center gap-1.5 font-bold text-[#E8D8C4]">
-                    <AlertTriangle className="w-3.5 h-3.5 text-[#E8D8C4]" />
-                    <span>{aiInsights.recommendations[0].title}</span>
-                  </div>
-                  <p className="text-[11px] text-white/80">{aiInsights.recommendations[0].message}</p>
-                  
-                  {aiInsights.recommendations[0].suggestedUser && (
-                    <button
-                      onClick={() => handleApplyRebalance(aiInsights.recommendations[0])}
-                      disabled={rebalancing}
-                      className="mt-1 w-full bg-[#FAF6F0] text-[#561C24] hover:bg-white font-bold text-[11px] py-1.5 rounded-lg transition-colors cursor-pointer"
-                    >
-                      {rebalancing ? 'Applying...' : 'Apply Smart Rebalance'}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="p-3 rounded-xl bg-white/10 border border-white/20 text-xs text-[#FAF6F0]/80">
-                  No bottleneck warnings currently flagged. Workload evenly distributed across active engineers.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-white/20 flex items-center justify-between text-[11px] text-white/70">
-            <span>High Risk Tasks: <strong className="text-white font-mono">{aiInsights?.executiveSummary?.highRiskTasksCount || 0}</strong></span>
-            <button onClick={loadDashboardData} className="hover:text-white flex items-center gap-1 cursor-pointer">
-              <RefreshCw className="w-3 h-3" />
-              <span>Refresh</span>
-            </button>
           </div>
         </div>
       </div>

@@ -69,10 +69,6 @@ export const SettingsPage = () => {
             </label>
             <label className="flex items-center gap-3 cursor-pointer">
               <input type="checkbox" defaultChecked className="accent-[#561C24] w-4 h-4 rounded" />
-              <span>AI Workload bottleneck alert digests</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" defaultChecked className="accent-[#561C24] w-4 h-4 rounded" />
               <span>Due date reminder notifications</span>
             </label>
           </div>

@@ -223,21 +223,6 @@ describe('Multi-Company SaaS Architecture & Security Suite', () => {
       expect(analyticsB.body.metrics.totalTasks).toBe(1);
     });
 
-    test('AI Endpoints enforce company boundaries', async () => {
-      // Task risk for Company B requested by Manager A fails
-      const riskRes = await request(app)
-        .get(`/api/ai/task-risk/${taskBId}`)
-        .set('Authorization', `Bearer ${managerAToken}`);
-      expect(riskRes.status).toBe(404);
-
-      // Workload for Company B employee requested by Manager A fails
-      const userB = db.findOne('users', u => u.email === 'emp@beta.com');
-      const workloadRes = await request(app)
-        .get(`/api/ai/workload/${userB.id}`)
-        .set('Authorization', `Bearer ${managerAToken}`);
-      expect(workloadRes.status).toBe(404);
-    });
-
 
     test('Activity Logs and Notifications are isolated per company', async () => {
       const actResA = await request(app)

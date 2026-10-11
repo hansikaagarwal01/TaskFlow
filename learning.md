@@ -194,22 +194,8 @@ Things to understand:
 
 ---
 
-# 9. AI Features
 
-Things to understand:
-
-- AI API integration
-- Backend-only API keys
-- AI workload analysis
-- Task risk analysis
-- AI recommendations
-- Structured AI responses
-- AI safety boundaries
-- Why AI should not directly change critical business data without user confirmation
-
----
-
-# 10. Testing
+# 9. Testing
 
 Things to understand:
 
@@ -308,13 +294,12 @@ After understanding the project, I should be able to:
 - Add task comments
 - Add file attachments
 - Modify dashboard analytics
-- Add an AI feature
 - Find and fix bugs
 - Find authorization vulnerabilities
 
 ---
 
-# 14. Questions To Answer After Building
+# 13. Questions To Answer After Building
 
 - How does a login request travel through the system?
 - How does the backend know who the user is?
@@ -329,7 +314,6 @@ After understanding the project, I should be able to:
 - How does Express communicate with PostgreSQL?
 - Why do we need Prisma?
 - How do database transactions work?
-- How does the AI feature communicate with the backend?
 - How would I debug a failed API request?
 - How would I deploy TaskFlow?
 
@@ -359,17 +343,4 @@ WHY it exists
 HOW the pieces communicate
 HOW to debug it
 HOW to modify it
-
----
-
-# 15. AI Workload & Risk Assistant (Phase 6)
-
-Things to understand:
-
-- **AI as Recommendation Layer**: AI is non-authoritative. Business rules, auth, and DB enforce truth.
-- **Deterministic Baseline**: Fallback logic calculates risk scores (0–100) and risk levels (LOW, MEDIUM, HIGH, CRITICAL) using database metrics even if AI provider is offline.
-- **Structured Output Validation**: Using Zod schemas to validate untrusted AI JSON responses.
-- **Prompt Injection Defense**: Treating user-supplied task titles and descriptions as untrusted data to analyze rather than executable instructions.
-- **Data Minimization**: Stripping passwords, hashes, keys, and session secrets before passing context to external AI models.
-- **Rate Limiting & Caching**: Preventing provider cost spikes and latency via short-lived in-memory caches and IP/user rate limiting.
 

@@ -14,7 +14,6 @@ const approvalsRoutes = require('./routes/approvals');
 const analyticsRoutes = require('./routes/analytics');
 const activityRoutes = require('./routes/activity');
 const notificationsRoutes = require('./routes/notifications');
-const aiRoutes = require('./routes/ai');
 
 const app = express();
 
@@ -52,7 +51,6 @@ app.use('/api/approvals', approvalsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/notifications', notificationsRoutes);
-app.use('/api/ai', aiRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {
