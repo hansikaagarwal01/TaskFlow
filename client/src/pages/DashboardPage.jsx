@@ -5,6 +5,7 @@ import { TaskCard } from '../components/TaskCard';
 import { 
   CheckSquare, 
   Clock, 
+  Sparkles,
   ShieldAlert, 
   AlertTriangle, 
   TrendingUp, 
